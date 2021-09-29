@@ -1,13 +1,12 @@
 # SUMOGym, Simulation Based AV Testing and Validation Package
 # Copyright (C) 2021 University of Michigan Transportation Research Institute
 
-# @author      Nikhil Punshi, Pei Li
-# @supervisor  Arpan Kusari
-# @date        09-11-2021
-
 import os
 import sys
 
+# check if SUMO_HOME exists in environment variable
+# if not, then need to declare the variable before proceeding
+# makes it OS-agnostic
 if "SUMO_HOME" in os.environ:
     tools = os.path.join(os.environ["SUMO_HOME"], "tools")
     sys.path.append(tools)
@@ -31,10 +30,15 @@ Action = np.ndarray
 
 class SumoGym(gym.Env):
     """
-    SUMO Environment for Reinforcement Learning Applications in Autonomous Vehicles
+    SUMO Environment for testing AV pipeline
 
     Uses OpenAI Gym
+    @Params: scenario: choosing scenario type - "highway", "urban", "custom" or default
+    @Params: choice: choosing particular scenario number of scenario type or "random" - chooses random scenario number
+    @Params: delta_t: time-step of running simulation
+    @Params: render_flag: whether to utilize SUMO-GUI or SUMO
 
+    returns None
     """
 
     def __init__(self, scenario, choice, delta_t, render_flag=True) -> None:
@@ -61,7 +65,7 @@ class SumoGym(gym.Env):
                 chosen_file = random.choice(all_config_files)
             else:
                 # check if the particular file is available
-                # we have numbered the config files from 1
+                # we have numbered the config files from 0
                 # so just check if that number is lesser than/equal to available
                 choice = int(choice)
                 if choice <= len(all_config_files):
@@ -79,7 +83,7 @@ class SumoGym(gym.Env):
                 chosen_file = random.choice(all_config_files)
             else:
                 # check if the particular file is available
-                # we have numbered the config files from 1
+                # we have numbered the config files from 0
                 # so just check if that number is lesser than/equal to available
                 choice = int(choice)
                 if choice <= len(all_config_files):
@@ -92,6 +96,17 @@ class SumoGym(gym.Env):
         else:
             # default
             self._cfg = "quickstart.sumocfg"
+
+    def reset(self) -> Observation:
+        """
+        Function to reset the simulation and return the observation
+        """
+        # Start SUMO with the following arguments:
+        # given config file
+        # step length corresponding to the time step
+        # warning during collision
+        # minimum gap of zero
+        # random placement as true
         sumoCmd = [
             self.sumoBinary,
             "-c",
@@ -105,14 +120,12 @@ class SumoGym(gym.Env):
             "--random",
             "true",
         ]
-
         traci.start(sumoCmd)
-
-    def reset(self) -> Observation:
-
+        # run a single step
         traci.simulationStep()
-        # print("Begin")
+        # get the vehicle id list
         self.vehID = traci.vehicle.getIDList()
+        # select the ego vehicle ID
         self.egoID = input(
             "Please choose your ego vehicle ID (pressing enter only chooses 1st as ego): "
         )
@@ -120,10 +133,14 @@ class SumoGym(gym.Env):
             self.egoID = self.vehID[0]
         # traci.gui.trackVehicle(traci.gui.DEFAULT_VIEW, self.egoID)
         # traci.gui.setZoom(traci.gui.DEFAULT_VIEW, 5000)
+        # get observations with respect to the ego-vehicle
         obs = self._compute_observations(self.egoID)
         return obs
 
     def _get_features(self, vehID) -> np.ndarray:
+        """
+        Function to get the position, velocity and length of each vehicle
+        """
         presence = 1
         x = traci.vehicle.getLanePosition(vehID)
         y = traci.vehicle.getLateralLanePosition(vehID)
@@ -134,7 +151,9 @@ class SumoGym(gym.Env):
         return features
 
     def _get_neighbor_ids(self, vehID) -> List:
-        # Extracting info on Neighbors
+        """
+        Function to extract the ids of the neighbors of a given vehicle
+        """
         neighbor_ids = []
         rightFollower = traci.vehicle.getRightFollowers(vehID)
         rightLeader = traci.vehicle.getRightLeaders(vehID)
@@ -169,7 +188,6 @@ class SumoGym(gym.Env):
         return neighbor_ids
 
     def _compute_observations(self, vehID) -> Observation:
-        # feature space should have first vehicle as EGO
         """
         Function to compute the observation space
         Returns: A 7x6 array of Observations
@@ -197,7 +215,11 @@ class SumoGym(gym.Env):
 
         return obs
 
-    def update_state(self, action: Action):
+    def update_state(self, action: Action) -> Tuple[float, float, float]:
+        """
+        Function to update the state of the ego vehicle based on the action (Accleration)
+        Returns difference in position and current speed
+        """
         # Longitudinal Acceleration Delay Parameter
         tc_ilc_long = 0.120
         # Lateral Acceleration Delay Parameter
@@ -276,10 +298,13 @@ class SumoGym(gym.Env):
         return dx, dy, speed
 
     def step(self, action: Action) -> Tuple[Observation, float, bool, dict]:
-        # next state, reward, info (dict)
-        # dict --> ego speed acc pos any useful info
+        """
+        Function to take a single step in the simulation based on action for the ego-vehicle
+        """
+        # next state, reward, done (bool), info (dict)
+        # dict --> useful info in event of crash or out-of-network
         # bool --> false default, true when finishes episode/sims
-        # float --> reward = user defined func -- NULL for now (Compute reward functionality)
+        # float --> reward = user defined func -- Zero for now (Compute reward functionality)
         curr_pos = traci.vehicle.getPosition(self.egoID)
         (dx, dy, speed) = self.update_state(action)
 
@@ -319,8 +344,9 @@ class SumoGym(gym.Env):
         return obs, reward, sim_check, info
 
     def render(self, flag) -> None:
-        # this script has been called from the command line. It will start sumo as a
-        # server, then connect and run
+        """
+        Function to render SUMO environment - essentially choosing SUMO-GUI or SUMO
+        """
 
         # check the path of sumo/sumo-gui
         if "SUMO_HOME" in os.environ:
@@ -346,6 +372,9 @@ class SumoGym(gym.Env):
         return reward
 
     def close(self):
+        """
+        Function to close the simulation environment
+        """
         traci.close()
 
 

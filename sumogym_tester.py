@@ -12,7 +12,9 @@ import numpy as np
 Observation = np.ndarray
 Action = np.ndarray
 
-def simple_idm(obs, max_speed, max_acc_x):
+
+# Create a simple IDM model based on default parameters for testing SumoGym
+def simple_idm(obs, max_speed, max_acc_x) -> (float, float, float):
     v0 = max_speed
     s0 = 20
     T = 1.5
@@ -41,18 +43,31 @@ def simple_idm(obs, max_speed, max_acc_x):
     return acc_x, del_x, del_v
 
 
+# Call SumoGym with the following parameters:
+#   scenario: type of scenario the user would like to run (highway or urban)
+#   choice: which particular scenario number does the user want to run - can be random or a specific numeric choice within quotes
+#   delta_t: simulation time period
+#   render_flag: Whether to render or to suppress
 env = SumoGym(scenario='highway', choice='random', delta_t=0.1, render_flag=True)
+# resets the simulation by dropping the vehicles into the environment and returning observations
 obs = env.reset()
+# user can run the simulation for a certain number of steps
 num = input("Please enter simulation time (pressing enter only runs till done): ")
 done = False
+# maximum speed of ego vehicle
 max_speed = 30
+# maximum acceptable acceleration
 max_acc_long = 3
+# initialization of info dict that returns data in the event of crash or out-of-network
 info = {}
 
+# if user returns enter, then simulation will run indefinitely until the ego vehicle crashes or goes outside network
 if num == "":
     iter = 0
     while done is False:
+        # get the longitudinal acceleration, distance to front vehicle and relative velocity
         acc_long, del_x, del_v = simple_idm(obs, max_speed, max_acc_long)
+        # The action to be sent to SumoGym is longitudinal and lateral acceleration
         Action = [acc_long, 0.]
         print("Iter: ", iter, " Long acc: ", acc_long)
         obs, reward, done, info = env.step(action=Action)
