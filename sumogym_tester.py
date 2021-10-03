@@ -1,10 +1,6 @@
 # SUMOGym, Simulation Based AV Testing and Validation Package
 # Copyright (C) 2021 University of Michigan Transportation Research Institute
 
-# @author      Nikhil Punshi
-# @supervisor  Arpan Kusari
-# @date        08-16-2021
-
 # SumoGym Testing File
 from sumo_gym import SumoGym
 import numpy as np
