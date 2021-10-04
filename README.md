@@ -14,7 +14,7 @@ We also provide some sample route files for two specific scenario types: Highway
 
 The paper accompanying the code is given in [arXiv link](https://arxiv.org/abs/2109.11620).
 
-Tha main branch contains the docker implementation of the sumo_gym. For the non-docker implementation, checkout the `non-docker implementation` branch
+The main branch contains the docker implementation of the sumo_gym.
 
 ## System
 
