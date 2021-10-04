@@ -35,3 +35,6 @@ docker run -it --rm --env="DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" 
 ## References
 
 [https://github.com/bogaotory/docker-sumo](https://github.com/bogaotory/docker-sumo)
+
+## Current known issues
+If installing in Windows, the sumo-gui implementation will not work due to a package issue. So `render_flag` needs to be false. 
