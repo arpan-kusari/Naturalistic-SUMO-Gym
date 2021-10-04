@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2021-09-28 09:47:40 by Eclipse SUMO netedit Version 1.10.0
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <sumo-net-file value="C:\Users\kusari\Documents\Python%20Projects\Simulation-software-architecture\sumo_gym\highway_route_files%20-%20old\highway-1.net.xml"/>
+    </input>
+
+    <output>
+        <output-file value="C:\Users\kusari\Documents\Python%20Projects\Simulation-software-architecture\sumo_gym\highway_route_files%20-%20old\highway-1.net.xml"/>
+    </output>
+
+    <processing>
+        <geometry.min-radius.fix.railways value="false"/>
+        <geometry.max-grade.fix value="false"/>
+        <offset.disable-normalization value="true"/>
+        <lefthand value="false"/>
+    </processing>
+
+    <junctions>
+        <no-turnarounds value="true"/>
+        <junctions.corner-detail value="5"/>
+        <junctions.limit-turn-speed value="5.5"/>
+        <rectangular-lane-cut value="false"/>
+    </junctions>
+
+    <pedestrian>
+        <walkingareas value="false"/>
+    </pedestrian>
+
+    <netedit>
+        <route-files value="C:\Users\kusari\Documents\Python%20Projects\Simulation-software-architecture\sumo_gym\highway_route_files%20-%20old\single_route.rou.xml"/>
+    </netedit>
+
+    <report>
+        <aggregate-warnings value="5"/>
+    </report>
+
+</configuration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <route edges="124433726 520996239 23217904 518877177 -102291 9146825 517170969 518455966 -102366 124433726 520996239 23217904 518877177 -102291 9146825 517170969 518455966 -102366 124433726 520996239 23217904 518877177 -102291 9146825 517170969 518455966 -102366" color="yellow" id="route_0"/>
+    <route edges="518877177 -102291 9146825 517170969 518455966 -102366 124433726 520996239 23217904" color="yellow" id="route_1"/>
+    <route edges="9146825 517170969 518455966 -102366 124433726 520996239 23217904 518877177 -102291" color="yellow" id="route_2"/>
+    <route edges="518455966 -102366 124433726 520996239 23217904 518877177 -102291 9146825 517170969" color="yellow" id="route_3"/>
+</routes>
