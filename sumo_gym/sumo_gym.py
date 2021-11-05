@@ -44,6 +44,7 @@ class SumoGym(gym.Env):
     def __init__(self, scenario, choice, delta_t, render_flag=True) -> None:
         self.sumoBinary = None
         self.scenario = scenario
+        self.choice = choice
         self.delta_t = delta_t
         self.vehID = None
         self.egoID = None
@@ -53,54 +54,55 @@ class SumoGym(gym.Env):
         # User input scenarios
         self.scenario = scenario
         print("Running simulation in", scenario, " mode.")
+        self._cfg = None
 
-        if scenario == "urban":
+    def reset(self) -> Observation:
+        """
+        Function to reset the simulation and return the observation
+        """
+        if self.scenario == "urban":
             all_config_files = []
             config_dir = './urban_route_files'
             for file in os.listdir(config_dir):
                 if file.endswith('.sumocfg'):
                     all_config_files.append(file)
-            if choice == 'random':
+            if self.choice == 'random':
                 # choose a random sumo config file and run it
                 chosen_file = random.choice(all_config_files)
             else:
                 # check if the particular file is available
                 # we have numbered the config files from 0
                 # so just check if that number is lesser than/equal to available
-                choice = int(choice)
+                choice = int(self.choice)
                 if choice <= len(all_config_files):
                     chosen_file = all_config_files[choice]
                 else:
                     sys.exit('Chosen file is not available')
             self._cfg = config_dir + '/' + chosen_file
-        elif scenario == "highway":
+        elif self.scenario == "highway":
             all_config_files = []
             config_dir = './highway_route_files'
             for file in os.listdir(config_dir):
                 if file.endswith('.sumocfg'):
                     all_config_files.append(file)
-            if choice == 'random':
+            all_config_files = sorted(all_config_files, key=len)
+            if self.choice == 'random':
                 chosen_file = random.choice(all_config_files)
             else:
                 # check if the particular file is available
                 # we have numbered the config files from 0
                 # so just check if that number is lesser than/equal to available
-                choice = int(choice)
-                if choice <= len(all_config_files):
+                choice = int(self.choice)
+                if choice < len(all_config_files):
                     chosen_file = all_config_files[choice]
                 else:
                     sys.exit('Chosen file is not available')
             self._cfg = config_dir + '/' + chosen_file
-        elif scenario == "custom":
+        elif self.scenario == "custom":
             self._cfg = input("Please enter your custom .sumocfg filename:\n")
         else:
             # default
             self._cfg = "quickstart.sumocfg"
-
-    def reset(self) -> Observation:
-        """
-        Function to reset the simulation and return the observation
-        """
         # Start SUMO with the following arguments:
         # given config file
         # step length corresponding to the time step
@@ -330,7 +332,7 @@ class SumoGym(gym.Env):
             # ego-vehicle is mapped to the exact position in the network by setting keepRoute to 2
 
             traci.vehicle.moveToXY(
-                self.egoID, edge, lane, new_x, new_y, tc.INVALID_DOUBLE_VALUE
+                self.egoID, edge, lane, new_x, new_y, tc.INVALID_DOUBLE_VALUE, 2
             )
 
             # remove control from SUMO, may result in very large speed
