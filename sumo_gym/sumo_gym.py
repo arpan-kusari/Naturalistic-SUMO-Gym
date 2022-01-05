@@ -43,7 +43,6 @@ class SumoGym(gym.Env):
 
     def __init__(self, scenario, choice, delta_t, render_flag=True) -> None:
         self.sumoBinary = None
-        self.scenario = scenario
         self.choice = choice
         self.delta_t = delta_t
         self.vehID = None
@@ -145,11 +144,21 @@ class SumoGym(gym.Env):
         """
         presence = 1
         x = traci.vehicle.getLanePosition(vehID)
+        # right is negative and left is positiive
         y = traci.vehicle.getLateralLanePosition(vehID)
+        lane_id = traci.vehicle.getLaneID(vehID)
+        if lane_id == "":
+            return None
+        else:
+            lane_index = traci.vehicle.getLaneIndex(vehID)
+            lane_width = traci.lane.getWidth(lane_id)
+        y = lane_width * (lane_index + 0.5) + y
         vx = traci.vehicle.getSpeed(vehID)
         vy = traci.vehicle.getLateralSpeed(vehID)
         length = traci.vehicle.getLength(vehID)
-        features = np.array([presence, x, y, vx, vy, length])
+        distance_to_signal, signal_status, remaining_time = self._get_upcoming_signal_information(vehID)
+        features = np.array([presence, x, y, vx, vy, length, distance_to_signal, signal_status, remaining_time])
+        
         return features
 
     def _get_neighbor_ids(self, vehID) -> List:
@@ -188,11 +197,31 @@ class SumoGym(gym.Env):
         else:
             neighbor_ids.append("")
         return neighbor_ids
+   
+    def _get_upcoming_signal_information(self, vehID):
 
+        signal_information = traci.vehicle.getNextTLS(vehID)
+        if len(signal_information) > 0:
+            signal_id = signal_information[0][0]
+            distance_to_signal = signal_information[0][2]
+            signal_status = signal_information[0][3]
+            remaining_time = traci.trafficlight.getNextSwitch(signal_id)-traci.simulation.getTime()
+
+            if signal_status in ["G", "g"]:
+                signal_status = 0
+            elif signal_status in ["R", "r"]:
+                signal_status = 1
+            else:
+                signal_status = 2
+        else:
+            distance_to_signal, signal_status, remaining_time = 0, 0, 0
+        
+        return distance_to_signal, signal_status, remaining_time
+        
     def _compute_observations(self, vehID) -> Observation:
         """
         Function to compute the observation space
-        Returns: A 7x6 array of Observations
+        Returns: A 7x9 array of Observations
         Key:
         Row 0 - ego and so on
         Columns:
@@ -202,18 +231,21 @@ class SumoGym(gym.Env):
         3 - vx
         4 - vy
         5 - vehicle length
+        6 - distance to next signal
+        7 - current signal status, 0: green, 1: red, 2: yellow
+        8 - remaning time of the current signal status in seconds
         """
         ego_features = self._get_features(vehID)
 
         neighbor_ids = self._get_neighbor_ids(vehID)
-        obs = np.ndarray((7, 6))
+        obs = np.ndarray((7, 9))
         obs[0, :] = ego_features
         for i, neighbor_id in enumerate(neighbor_ids):
             if neighbor_id != "":
                 features = self._get_features(neighbor_id)
                 obs[i + 1, :] = features
             else:
-                obs[i + 1, :] = np.zeros((6,))
+                obs[i + 1, :] = np.zeros((9, ))
 
         return obs
 
@@ -236,7 +268,6 @@ class SumoGym(gym.Env):
         ay_cmd = action[1]
         vx = traci.vehicle.getSpeed(self.egoID)  # long speed
         vy = traci.vehicle.getLateralSpeed(self.egoID)  # lat speed
-
         speed = math.sqrt(vx ** 2 + vy ** 2)
 
         # return heading in radians
@@ -378,7 +409,3 @@ class SumoGym(gym.Env):
         Function to close the simulation environment
         """
         traci.close()
-
-
-if __name__ == "__main__":
-    env = SumoGym(scenario="highway", delta_t=0.1, render_flag=False)

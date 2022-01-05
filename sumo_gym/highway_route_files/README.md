@@ -1,1 +1,1 @@
-We use the same highway loop (created from OSM) with different vehicle densities - 100, 200, 400, 600, 800, 1000
+We use the same highway loop (artificially created) with different vehicle densities - 100, 200, 400

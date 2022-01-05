@@ -27,7 +27,7 @@ def simple_idm(obs, max_speed, max_acc_x) -> (float, float, float):
     if obs[2, 0] == 1:
         lead_vehicle_v = obs[2, 3]
         lead_vehicle_x = obs[2, 1]
-        lead_vehicle_length = obs[2, -1]
+        lead_vehicle_length = obs[2, 5]
         del_x = lead_vehicle_x - ego_x - lead_vehicle_length
         del_v = lead_vehicle_v - ego_v
         # print('del_x = ', del_x, ' del_v = ', del_v)
@@ -48,7 +48,7 @@ def simple_idm(obs, max_speed, max_acc_x) -> (float, float, float):
 #   choice: which particular scenario number does the user want to run - can be random or a specific numeric choice within quotes
 #   delta_t: simulation time step, a small number will smooth the vehicle's trajectory
 #   render_flag: Whether to render or to suppress
-env = SumoGym(scenario='highway', choice='random', delta_t=0.01, render_flag=True)
+env = SumoGym(scenario='highway', choice='random', delta_t=0.1, render_flag=True)
 # resets the simulation by dropping the vehicles into the environment and returning observations
 obs = env.reset()
 # user can run the simulation for a certain number of steps
@@ -68,7 +68,7 @@ if num == "":
         # get the longitudinal acceleration, distance to front vehicle and relative velocity
         acc_long, del_x, del_v = simple_idm(obs, max_speed, max_acc_long)
         # The action to be sent to SumoGym is longitudinal and lateral acceleration
-        Action = [acc_long, 2.]
+        Action = [acc_long, 0.]
         print("Iter: ", iter, " Long acc: ", acc_long)
         obs, reward, done, info = env.step(action=Action)
         iter += 1
