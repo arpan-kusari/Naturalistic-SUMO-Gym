@@ -6,9 +6,11 @@
 # @date        08-16-2021
 
 # SumoGym Testing File
+import os
+
 from sumo_gym import SumoGym
 import numpy as np
-
+import matplotlib.pyplot as plt
 Observation = np.ndarray
 Action = np.ndarray
 
@@ -42,13 +44,12 @@ def simple_idm(obs, max_speed, max_acc_x) -> (float, float, float):
     # acc_x = min(max(acc_x, -max_acc_x), max_acc_x)
     return acc_x, del_x, del_v
 
-
 # Call SumoGym with the following parameters:
 #   scenario: type of scenario the user would like to run (highway or urban)
 #   choice: which particular scenario number does the user want to run - can be random or a specific numeric choice within quotes
 #   delta_t: simulation time step, a small number will smooth the vehicle's trajectory
 #   render_flag: Whether to render or to suppress
-env = SumoGym(scenario='highway', choice='random', delta_t=0.1, render_flag=True)
+env = SumoGym(scenario='highway', choice='0', delta_t=0.1, render_flag=True)
 # resets the simulation by dropping the vehicles into the environment and returning observations
 obs = env.reset()
 # user can run the simulation for a certain number of steps
@@ -60,7 +61,7 @@ max_speed = 30
 max_acc_long = 3
 # initialization of info dict that returns data in the event of crash or out-of-network
 info = {}
-
+# plt.figure()
 # if user returns enter, then simulation will run indefinitely until the ego vehicle crashes or goes outside network
 if num == "":
     iter = 0
@@ -75,8 +76,7 @@ if num == "":
 else:
     for _ in range(int(num)):
         acc_long, del_x, del_v  = simple_idm(obs, max_speed, max_acc_long)
-        Action = [acc_long, 0.]
+        Action = [acc_long, 3]
         obs, reward, done, info = env.step(action=Action)
 
-print("Info: ", info)
 env.close()

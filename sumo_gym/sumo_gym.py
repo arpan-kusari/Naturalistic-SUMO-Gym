@@ -16,9 +16,12 @@ else:
 import gym
 import math
 import traci
+import ast
 import numpy as np
+import pandas as pd
 from typing import Tuple
 from sumolib import checkBinary
+from shapely.geometry import LineString, Point
 import traci.constants as tc
 from typing import List
 import os
@@ -49,7 +52,6 @@ class SumoGym(gym.Env):
         self.egoID = None
         # Render the simulation
         self.render(render_flag)
-
         # User input scenarios
         self.scenario = scenario
         print("Running simulation in", scenario, " mode.")
@@ -101,7 +103,7 @@ class SumoGym(gym.Env):
             self._cfg = input("Please enter your custom .sumocfg filename:\n")
         else:
             # default
-            self._cfg = "quickstart.sumocfg"
+            self._cfg = "loop.sumocfg"
         # Start SUMO with the following arguments:
         # given config file
         # step length corresponding to the time step
@@ -249,47 +251,7 @@ class SumoGym(gym.Env):
 
         return obs
 
-    def update_state(self, action: Action) -> Tuple[float, float, float]:
-        """
-        Function to update the state of the ego vehicle based on the action (Accleration)
-        Returns difference in position and current speed
-        """
-        # Longitudinal Acceleration Delay Parameter
-        tc_ilc_long = 0.120
-        # Lateral Acceleration Delay Parameter
-        tc_ilc_lat = 0.120
-
-        # pos = traci.vehicle.getPosition(self.egoID)
-        acc = traci.vehicle.getAcceleration(self.egoID)
-        angle = traci.vehicle.getAngle(self.egoID)
-
-        # Acceleration and Velocity in X and Y
-        ax_cmd = action[0]
-        ay_cmd = action[1]
-        vx = traci.vehicle.getSpeed(self.egoID)  # long speed
-        vy = traci.vehicle.getLateralSpeed(self.egoID)  # lat speed
-        speed = math.sqrt(vx ** 2 + vy ** 2)
-
-        # return heading in radians
-        heading = math.atan(vy / (vx + 1e-12))
-
-        acc_x = acc * math.cos(heading)
-        acc_y = acc * math.sin(heading)
-
-        acc_x += 1 / tc_ilc_long * (ax_cmd - acc_x) * self.delta_t
-        acc_y += 1 / tc_ilc_lat * (ay_cmd - acc_y) * self.delta_t
-
-        vx += acc_x * self.delta_t
-        vy += acc_y * self.delta_t
-
-        # stop the vehicle if speed is negative
-        vx = max(0, vx)
-        vy = max(0, vy)
-
-        speed = math.sqrt(vx ** 2 + vy ** 2)
-
-        distance = speed * self.delta_t
-
+    def long_lat_pos_cal(self, angle, acc_y, distance, heading):
         if angle <= 90:
             alpha = 90 - angle
             # consider steering maneuver
@@ -306,7 +268,7 @@ class SumoGym(gym.Env):
                 radians = math.radians(alpha) - heading
             else:
                 radians = math.radians(alpha) + heading
-            radians = math.radians(alpha)
+
             dx = distance * math.cos(radians)
             dy = -distance * math.sin(radians)
         elif 180 < angle <= 270:
@@ -316,6 +278,7 @@ class SumoGym(gym.Env):
                 radians = math.radians(alpha) + heading
             else:
                 radians = math.radians(alpha) - heading
+
             dx = -distance * math.cos(radians)
             dy = -distance * math.sin(radians)
         else:
@@ -325,9 +288,94 @@ class SumoGym(gym.Env):
                 radians = math.radians(alpha) + heading
             else:
                 radians = math.radians(alpha) - heading
+
             dx = -distance * math.cos(radians)
             dy = distance * math.sin(radians)
+        
+        return dx, dy
 
+    def update_state(self, action: Action) -> Tuple[float, float, float]:
+        """
+        Function to update the state of the ego vehicle based on the action (Accleration)
+        Returns difference in position and current speed
+        """
+        # Longitudinal Acceleration Delay Parameter
+        tc_ilc_long = 0.120
+        # Lateral Acceleration Delay Parameter
+        tc_ilc_lat = 0.120
+
+        # pos = traci.vehicle.getPosition(self.egoID)
+        acc = traci.vehicle.getAcceleration(self.egoID)
+        angle = traci.vehicle.getAngle(self.egoID)
+        lane_id = traci.vehicle.getLaneID(self.egoID)
+        lane_shape = traci.lane.getShape(lane_id)
+        curr_pos = traci.vehicle.getPosition(self.egoID)
+        x, y = curr_pos[0], curr_pos[1]
+        road_pos = traci.simulation.convertRoad(x, y)
+        # Acceleration and Velocity in X and Y
+        ax_cmd = action[0]
+        ay_cmd = action[1]
+        vx = traci.vehicle.getSpeed(self.egoID)  # long speed
+        vy = traci.vehicle.getLateralSpeed(self.egoID)  # lat speed
+        speed = math.sqrt(vx ** 2 + vy ** 2)
+        # return heading in radians
+        heading = math.atan(vy / (vx + 1e-12))
+        acc_x = acc * math.cos(heading)
+        acc_y = acc * math.sin(heading)
+
+        acc_x += 1 / tc_ilc_long * (ax_cmd - acc_x) * self.delta_t
+        acc_y += 1 / tc_ilc_lat * (ay_cmd - acc_y) * self.delta_t
+
+        vx += acc_x * self.delta_t
+        vy += acc_y * self.delta_t
+
+        # stop the vehicle if speed is negative
+        vx = max(0, vx)
+        vy = max(0, vy)
+
+        speed = math.sqrt(vx ** 2 + vy ** 2)
+        distance = speed * self.delta_t
+        long_distance = vx * self.delta_t
+        lat_distance = vy * self.delta_t
+        
+        try:
+            x_1, y_1 = traci.simulation.convert2D(road_pos[0], road_pos[1]+long_distance, road_pos[2])
+            dx = x_1 - x
+            dy = y_1 - y
+            if angle <= 90:
+                if acc_y <= 0:
+                    dx -= lat_distance * math.cos(math.radians(angle))
+                    dy += lat_distance * math.sin(math.radians(angle))
+                else:
+                    dx += lat_distance * math.cos(math.radians(angle))
+                    dy -= lat_distance * math.sin(math.radians(angle))
+            elif 90 < angle <= 180:
+                angle = 180 - angle
+                if acc_y <= 0:
+                    dx += lat_distance * math.cos(math.radians(angle))
+                    dy += lat_distance * math.sin(math.radians(angle))
+                else:
+                    dx -= lat_distance * math.cos(math.radians(angle))
+                    dy -= lat_distance * math.sin(math.radians(angle))
+            elif 180 < angle <= 270:
+                angle = angle - 180
+                if acc_y <= 0:
+                    dx += lat_distance * math.cos(math.radians(angle))
+                    dy -= lat_distance * math.sin(math.radians(angle))
+                else:
+                    dx -= lat_distance * math.cos(math.radians(angle))
+                    dy += lat_distance * math.sin(math.radians(angle))
+            else:
+                angle = 360 - angle
+                if acc_y <= 0:
+                    dx -= lat_distance * math.cos(math.radians(angle))
+                    dy -= lat_distance * math.sin(math.radians(angle))
+                else:
+                    dx += lat_distance * math.cos(math.radians(angle))
+                    dy += lat_distance * math.sin(math.radians(angle))        
+        except:
+            dx, dy = self.long_lat_pos_cal(angle, acc_y, distance, heading)            
+        
         return dx, dy, speed
 
     def step(self, action: Action) -> Tuple[Observation, float, bool, dict]:
@@ -340,13 +388,14 @@ class SumoGym(gym.Env):
         # float --> reward = user defined func -- Zero for now (Compute reward functionality)
         curr_pos = traci.vehicle.getPosition(self.egoID)
         (dx, dy, speed) = self.update_state(action)
-
+        
         new_x = curr_pos[0] + dx
         new_y = curr_pos[1] + dy
 
         edge = traci.vehicle.getRoadID(self.egoID)
         lane = traci.vehicle.getLaneIndex(self.egoID)
         lane_id = traci.vehicle.getLaneID(self.egoID)
+
         sim_check = False
         obs = []
         info = {}
@@ -363,7 +412,7 @@ class SumoGym(gym.Env):
             # ego-vehicle is mapped to the exact position in the network by setting keepRoute to 2
 
             traci.vehicle.moveToXY(
-                self.egoID, edge, lane, new_x, new_y, tc.INVALID_DOUBLE_VALUE, 2
+                self.egoID, edge, lane, new_x, new_y, tc.INVALID_DOUBLE_VALUE, 7
             )
 
             # remove control from SUMO, may result in very large speed
