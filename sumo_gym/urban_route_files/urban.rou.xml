@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2021-11-17 14:18:36 by Eclipse SUMO netedit Version 1.10.0
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
+
+    <input>
+        <sumo-net-file value="C:\Users\peiliesg\Dropbox%20(University%20of%20Michigan)\Simulation-software-architecture\sumo_gym\urban_route_files\urban.net.xml"/>
+    </input>
+
+    <output>
+        <output-file value="C:\Users\peiliesg\Dropbox%20(University%20of%20Michigan)\Simulation-software-architecture\sumo_gym\urban_route_files\urban.net.xml"/>
+    </output>
+
+    <processing>
+        <geometry.min-radius.fix.railways value="false"/>
+        <geometry.max-grade.fix value="false"/>
+        <offset.disable-normalization value="true"/>
+        <lefthand value="false"/>
+    </processing>
+
+    <junctions>
+        <no-turnarounds value="true"/>
+        <junctions.corner-detail value="5"/>
+        <junctions.limit-turn-speed value="5.5"/>
+        <rectangular-lane-cut value="false"/>
+    </junctions>
+
+    <pedestrian>
+        <walkingareas value="false"/>
+    </pedestrian>
+
+    <netedit>
+        <route-files value="C:\Users\peiliesg\Dropbox%20(University%20of%20Michigan)\Simulation-software-architecture\sumo_gym\urban_route_files\urban.rou.xml"/>
+    </netedit>
+
+    <report>
+        <aggregate-warnings value="5"/>
+    </report>
+
+</configuration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
+    <route edges="215486792#1 -gneE1 gneE0 47026378 -215671214 215671204 53848099 75459746 -196818520 -43990411#1 53848099 -104081868 156772091#1 gneE2 -215344910#0 -75459746 -104081868 156772091#1 gneE2 -215344910#0 -75459746 -104081868 156772091#1 gneE2 -215344910#0 -196818520 -43990411#1 -43990411#0 156772091#0 104081868 -53848099 -215671204 215671214 73541769#1 43990411#0 -215671204 -80659133 gneE0 47026378 -215671214 -80659133 gneE0 47026378 -215671214 215671204 43990411#1 215486792#1 -gneE1" color="yellow" id="route_0"/>
+    <route edges="-215486792#1 196818520 -75459746 -53848099 -215671204 -80659133 gneE1 -215486792#1 196818520 -75459746 -53848099 -215671204 215671214 -47026378 51064594 80659133 215671214 -47026378 51064594 80659133 215671204 -43990411#0 -73541769#1 -215671214 215671204 53848099 -104081868 -156772091#0 43990411#0 43990411#1 196818520 215344910#0 -gneE2 -156772091#1 104081868 75459746 215344910#0 -gneE2 -156772091#1 104081868 75459746 215344910#0 -gneE2 -156772091#1 104081868 -53848099 43990411#1 196818520" color="yellow" id="route_1"/>
+    <route edges="-80659133 gneE1 -215486792#1 196818520 -75459746 -53848099 -215671204" color="yellow" id="route_2"/>
+    <route edges="43990411#1 196818520 215344910#0 -gneE2 -156772091#1 -156772091#0 43990411#0" color="yellow" id="route_3"/>
+    <route edges="-43990411#1 -43990411#0 156772091#0 156772091#1 gneE2 -215344910#0 -196818520" color="yellow" id="route_4"/>
+</routes>
