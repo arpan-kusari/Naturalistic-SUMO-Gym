@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- generated on 2021-09-16 13:36:57.668190 by findAllRoutes.py v1_10_0+0000-83496a5972
-  options: -n highway-1.net.xml -o output -s 124433726 -t -102366
--->
-<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
-    <route id="0" edges="124433726 520996239 23217904 518877177 -102291 9146825 517170969 518455966 -102366"/>
-</routes>

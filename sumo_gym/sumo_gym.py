@@ -101,7 +101,7 @@ class SumoGym(gym.Env):
                     chosen_file = all_config_files[choice]
                 else:
                     sys.exit('Chosen file is not available')
-            self._cfg = config_dir + '/' + chosen_file
+            self._cfg = config_dir + '/' + "highway-100.sumocfg"
         elif self.scenario == "custom":
             self._cfg = input("Please enter your custom .sumocfg filename:\n")
         else:
@@ -332,7 +332,8 @@ class SumoGym(gym.Env):
         
         return dx, dy
 
-    def update_state(self, action: Action) -> Tuple[float, float, float, LineString, float, float, float, float, float]:
+
+    def update_state(self, action: Action) -> Tuple[float, float, float, float, float, float, float, float]:
         """
         Function to update the state of the ego vehicle based on the action (Accleration)
         Returns difference in position and current speed
@@ -346,8 +347,8 @@ class SumoGym(gym.Env):
         vx, vy = self.ego_state['vx'], self.ego_state['vy']
         speed = math.sqrt(vx ** 2 + vy ** 2)
         # return heading in degrees
-        heading = (math.atan(vy/ (vx+ 1e-12)))
-
+        # heading = (math.atan(vy/ (vx+ 1e-12)))
+        heading = math.atan(math.radians(angle) + math.atan(vy/ (vx+ 1e-12)))
         acc_x, acc_y = self.ego_state['ax'], self.ego_state['ay']
         acc_x += (ax_cmd - acc_x) * self.delta_t
         acc_y += (ay_cmd - acc_y) * self.delta_t

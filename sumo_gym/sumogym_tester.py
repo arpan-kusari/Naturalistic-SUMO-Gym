@@ -6,8 +6,9 @@
 # @date        08-16-2021
 
 # SumoGym Testing File
-import math
 
+import os
+import math
 from sumo_gym import SumoGym
 from params import IDMConstants, LCConstants
 import numpy as np
@@ -81,7 +82,7 @@ def simple_lane_change(obs,
         ay_cmd = ay_max * math.sin((2*math.pi)*curr_lc_time/lc_params.time_for_lane_change)
         if max_ind == 2:
             ay_cmd = -ay_cmd
-        print('ay: ', ay_cmd, ' vy: ', vy, ' y:', y, ' del_y:', abs((desired_lane + 0.5) * lane_width - y))
+        print('ay: ', ay_cmd, ' vy: ', vy, ' y:', y, 'lat_dist', vy*delta_t, 'del_y:', abs((desired_lane + 0.5) * lane_width - y))
         return ay_cmd, lc_bool, desired_lane, curr_lc_time, max_ind
 
 
@@ -109,6 +110,7 @@ desired_lane = obs[0, 5]
 lc_bool = False
 curr_lc_time = 0
 max_ind = 1
+lat_dist = 0
 if num == "":
     iter = 0
     while done is False:
@@ -137,5 +139,4 @@ else:
         acc_long, del_x, del_v  = simple_idm(obs, max_speed, max_acc_long)
         Action = [acc_long, 20]
         obs, reward, done, info = env.step(action=Action)
-
 env.close()
