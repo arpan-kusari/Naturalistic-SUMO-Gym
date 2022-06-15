@@ -333,7 +333,7 @@ class SumoGym(gym.Env):
         return dx, dy
 
 
-    def update_state(self, action: Action) -> Tuple[float, float, float, float, float, float, float, float]:
+    def update_state(self, action: Action) -> Tuple[bool, float, float, float, LineString, float, float, float, float, float, float]:
         """
         Function to update the state of the ego vehicle based on the action (Accleration)
         Returns difference in position and current speed
@@ -347,22 +347,27 @@ class SumoGym(gym.Env):
         vx, vy = self.ego_state['vx'], self.ego_state['vy']
         speed = math.sqrt(vx ** 2 + vy ** 2)
         # return heading in degrees
-        # heading = (math.atan(vy/ (vx+ 1e-12)))
-        heading = math.atan(math.radians(angle) + math.atan(vy/ (vx+ 1e-12)))
+        # heading = (math.atan(vy / (vx + 1e-12))
+        heading = math.atan(math.radians(angle) + (vy / (vx + 1e-12)))
+
         acc_x, acc_y = self.ego_state['ax'], self.ego_state['ay']
         acc_x += (ax_cmd - acc_x) * self.delta_t
         acc_y += (ay_cmd - acc_y) * self.delta_t
 
         vx += acc_x * self.delta_t
         vy += acc_y * self.delta_t
-        
+
         # stop the vehicle if speed is negative
         vx = max(0, vx)
         speed = math.sqrt(vx ** 2 + vy ** 2)
         distance = speed * self.delta_t
         long_distance = vx * self.delta_t
         lat_distance = vy * self.delta_t
+        in_road = True
         # try:
+        if lane_id == "":
+            in_road = False
+            return in_road, [], [], [], [], [], [], [], [], [], []
         if lane_id[0] != ":":
             veh_loc = Point(x, y)
             line = self.ego_line
@@ -370,10 +375,10 @@ class SumoGym(gym.Env):
             if distance_on_line + long_distance < line.length:
                 point_on_line_x, point_on_line_y = line.interpolate(distance_on_line).coords[0][0], \
                                                    line.interpolate(distance_on_line).coords[0][1],
-                new_x, new_y = line.interpolate(distance_on_line+long_distance).coords[0][0], \
-                               line.interpolate(distance_on_line+long_distance).coords[0][1]
-                lon_dx, lon_dy = new_x-point_on_line_x, new_y-point_on_line_y
-                lat_dx, lat_dy = lat_distance*math.cos(heading), lat_distance*math.sin(heading)
+                new_x, new_y = line.interpolate(distance_on_line + long_distance).coords[0][0], \
+                               line.interpolate(distance_on_line + long_distance).coords[0][1]
+                lon_dx, lon_dy = new_x - point_on_line_x, new_y - point_on_line_y
+                lat_dx, lat_dy = lat_distance * math.cos(heading), lat_distance * math.sin(heading)
                 dx = lon_dx + lat_dx
                 dy = lon_dy + lat_dy
             else:
@@ -385,9 +390,9 @@ class SumoGym(gym.Env):
             line = self.ego_line
             dx, dy = self.long_lat_pos_cal(angle, acc_y, distance, heading)
 
-        return dx, dy, speed, line, vx, vy, acc_x, acc_y, long_distance, lat_distance
+        return in_road, dx, dy, speed, line, vx, vy, acc_x, acc_y, long_distance, lat_distance
 
-    def step(self, action: Action) -> Tuple[Observation, float, bool, dict]:
+    def step(self, action: Action) -> Tuple[dict, float, bool, dict]:
         """
         Function to take a single step in the simulation based on action for the ego-vehicle
         """
@@ -396,13 +401,7 @@ class SumoGym(gym.Env):
         # bool --> false default, true when finishes episode/sims
         # float --> reward = user defined func -- Zero for now (Compute reward functionality)
         curr_pos = traci.vehicle.getPosition(self.egoID)
-        (dx, dy, speed, line, vx, vy, acc_x, acc_y, long_dist, lat_dist) = self.update_state(action)
-
-        self.ego_state['lane_x'] += long_dist
-        self.ego_state['lane_y'] += lat_dist
-        new_x = self.ego_state['x'] + dx
-        new_y = self.ego_state['y'] + dy
-
+        (in_road, dx, dy, speed, line, vx, vy, acc_x, acc_y, long_dist, lat_dist) = self.update_state(action)
         edge = traci.vehicle.getRoadID(self.egoID)
         lane = traci.vehicle.getLaneIndex(self.egoID)
         lane_id = traci.vehicle.getLaneID(self.egoID)
@@ -410,16 +409,19 @@ class SumoGym(gym.Env):
         sim_check = False
         obs = []
         info = {}
-
-        if lane_id == "":
+        if in_road == False or lane_id == "":
             info["debug"] = "Ego-vehicle is out of network"
             sim_check = True
-
         elif self.egoID in traci.simulation.getCollidingVehiclesIDList():
             info["debug"] = "A crash happened to the Ego-vehicle"
             sim_check = True
 
         else:
+            self.ego_state['lane_x'] += long_dist
+            self.ego_state['lane_y'] += lat_dist
+            # print(self.ego_state['lane_y'])
+            new_x = self.ego_state['x'] + dx
+            new_y = self.ego_state['y'] + dy
             # ego-vehicle is mapped to the exact position in the network by setting keepRoute to 2
             traci.vehicle.moveToXY(
                 self.egoID, edge, lane, new_x, new_y,
@@ -433,8 +435,10 @@ class SumoGym(gym.Env):
             self.ego_state['x'], self.ego_state['y'] = new_x, new_y
             self.ego_state['vx'], self.ego_state['vy'] = vx, vy
             self.ego_state['ax'], self.ego_state['ay'] = acc_x, acc_y
+            info["debug"] = [lat_dist, self.ego_state['lane_y']]
             traci.simulationStep()
         reward = self.reward(action)
+
         return obs, reward, sim_check, info
 
     def render(self, flag) -> None:
