@@ -409,16 +409,23 @@ class SumoGym(gym.Env):
         sim_check = False
         obs = []
         info = {}
+        
+        # sim check before traci update
         if in_road == False or lane_id == "":
             info["debug"] = "Ego-vehicle is out of network"
             sim_check = True
         elif self.egoID in traci.simulation.getCollidingVehiclesIDList():
             info["debug"] = "A crash happened to the Ego-vehicle"
             sim_check = True
-
+        
         else:
-            self.ego_state['lane_x'] += long_dist
-            self.ego_state['lane_y'] += lat_dist
+            # update lane_x and lane_y (based on true value instead of ego_state)
+            y = traci.vehicle.getLateralLanePosition(self.egoID)
+            lane_id = traci.vehicle.getLaneID(self.egoID)
+            lane_index = traci.vehicle.getLaneIndex(self.egoID)
+            lane_width = traci.lane.getWidth(lane_id)
+            self.ego_state['lane_x'] = traci.vehicle.getLanePosition(self.egoID) + long_dist
+            self.ego_state['lane_y'] = lane_width * (lane_index + 0.5) + y + lat_dist
             # print(self.ego_state['lane_y'])
             new_x = self.ego_state['x'] + dx
             new_y = self.ego_state['y'] + dy
