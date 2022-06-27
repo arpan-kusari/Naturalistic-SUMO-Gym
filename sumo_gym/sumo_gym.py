@@ -332,6 +332,60 @@ class SumoGym(gym.Env):
         
         return dx, dy
 
+    def _update_kinematic(self, action: Action, angle):
+        '''
+        Function to update kinematics of the ego vehicle based on the action
+
+        Return: distance, long_distance, lat_distance, vx, vy, speed, heading, acc_x, acc_y
+        '''
+        if self.params.action_type == "acc_steering":
+            acceleration = action[0]
+            delta_f = action[1]
+            beta = np.arctan(1 / 2 * np.tan(delta_f))
+            # update x
+            vx, vy = self.ego_state['vx'], self.ego_state['vy']
+            heading = (math.atan(vy/ (vx+ 1e-12)))
+            pre_speed = math.sqrt(vx ** 2 + vy ** 2)
+            vx, vy = pre_speed * np.array([np.cos(heading + beta),
+                                   np.sin(heading + beta)])
+            long_distance = vx * self.delta_t
+            lat_distance = vy * self.delta_t
+            distance = math.sqrt(vx ** 2 + vy ** 2) * self.delta_t
+            # update v
+            length = traci.vehicle.getLength(self.egoID)
+            heading = pre_speed * np.sin(beta) / (length / 2) * self.delta_t
+            speed = pre_speed + acceleration * self.delta_t
+            vx, vy = speed * np.array([np.cos(heading), np.sin(heading)])
+            # update a
+            acc_x = (vx - self.ego_state['vx']) / self.delta_t
+            acc_y = (vy - self.ego_state['vy']) / self.delta_t
+            print("steering action: ", acceleration, delta_f, "\tacceleration: ", acc_x, acc_y)
+        elif self.params.action_type == "acceleration":
+            ax_cmd = action[0]
+            ay_cmd = action[1]
+            vx, vy = self.ego_state['vx'], self.ego_state['vy']
+            speed = math.sqrt(vx ** 2 + vy ** 2)
+            # return heading in degrees
+            # heading = (math.atan(vy / (vx + 1e-12))
+            heading = math.atan(math.radians(angle) + (vy / (vx + 1e-12)))
+
+            acc_x, acc_y = self.ego_state['ax'], self.ego_state['ay']
+            acc_x += (ax_cmd - acc_x) * self.delta_t
+            acc_y += (ay_cmd - acc_y) * self.delta_t
+
+            vx += acc_x * self.delta_t
+            vy += acc_y * self.delta_t
+
+            # stop the vehicle if speed is negative
+            vx = max(0, vx)
+            speed = math.sqrt(vx ** 2 + vy ** 2)
+            distance = speed * self.delta_t
+            long_distance = vx * self.delta_t
+            lat_distance = vy * self.delta_t
+        else:
+            raise NotImplementedError
+        # print("vy:",vy, "distance", lat_distance)
+        return distance, long_distance, lat_distance, vx, vy, speed, heading, acc_x, acc_y
 
     def update_state(self, action: Action) -> Tuple[bool, float, float, float, LineString, float, float, float, float, float, float]:
         """
@@ -341,28 +395,9 @@ class SumoGym(gym.Env):
         angle = traci.vehicle.getAngle(self.egoID)
         lane_id = traci.vehicle.getLaneID(self.egoID)
         x, y = self.ego_state['x'], self.ego_state['y']
-        ax_cmd = action[0]
-        ay_cmd = action[1]
+        
+        distance, long_distance, lat_distance, vx, vy, speed, heading, acc_x, acc_y = self._update_kinematic(action, angle)
 
-        vx, vy = self.ego_state['vx'], self.ego_state['vy']
-        speed = math.sqrt(vx ** 2 + vy ** 2)
-        # return heading in degrees
-        # heading = (math.atan(vy / (vx + 1e-12))
-        heading = math.atan(math.radians(angle) + (vy / (vx + 1e-12)))
-
-        acc_x, acc_y = self.ego_state['ax'], self.ego_state['ay']
-        acc_x += (ax_cmd - acc_x) * self.delta_t
-        acc_y += (ay_cmd - acc_y) * self.delta_t
-
-        vx += acc_x * self.delta_t
-        vy += acc_y * self.delta_t
-
-        # stop the vehicle if speed is negative
-        vx = max(0, vx)
-        speed = math.sqrt(vx ** 2 + vy ** 2)
-        distance = speed * self.delta_t
-        long_distance = vx * self.delta_t
-        lat_distance = vy * self.delta_t
         in_road = True
         # try:
         if lane_id == "":
