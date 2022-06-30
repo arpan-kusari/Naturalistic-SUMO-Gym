@@ -342,24 +342,25 @@ class SumoGym(gym.Env):
             acceleration = action[0]
             delta_f = action[1]
             beta = np.arctan(1 / 2 * np.tan(delta_f))
+            length = traci.vehicle.getLength(self.egoID)
             # update x
             vx, vy = self.ego_state['vx'], self.ego_state['vy']
-            heading = (math.atan(vy/ (vx+ 1e-12)))
+            heading = math.atan(vy / (vx + 1e-12))
             pre_speed = math.sqrt(vx ** 2 + vy ** 2)
             vx, vy = pre_speed * np.array([np.cos(heading + beta),
                                    np.sin(heading + beta)])
             long_distance = vx * self.delta_t
             lat_distance = vy * self.delta_t
             distance = math.sqrt(vx ** 2 + vy ** 2) * self.delta_t
-            # update v
-            length = traci.vehicle.getLength(self.egoID)
-            heading = pre_speed * np.sin(beta) / (length / 2) * self.delta_t
-            speed = pre_speed + acceleration * self.delta_t
-            vx, vy = speed * np.array([np.cos(heading), np.sin(heading)])
             # update a
             acc_x = (vx - self.ego_state['vx']) / self.delta_t
             acc_y = (vy - self.ego_state['vy']) / self.delta_t
-            print("steering action: ", acceleration, delta_f, "\tacceleration: ", acc_x, acc_y)
+            # update v
+            heading += pre_speed * np.sin(beta) / (length / 2) * self.delta_t
+            speed = pre_speed + acceleration * self.delta_t
+            vx, vy = speed * np.array([np.cos(heading), np.sin(heading)])
+            heading += math.radians(angle) # Add angle between road and world coordinate
+            # print("steering action: ", acceleration, delta_f, "\tacceleration: ", acc_x, acc_y)
         elif self.params.action_type == "acceleration":
             ax_cmd = action[0]
             ay_cmd = action[1]

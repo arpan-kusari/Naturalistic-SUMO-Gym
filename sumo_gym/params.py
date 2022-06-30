@@ -2,7 +2,7 @@ class SimulationConstants:
     def __init__(self):
         self.num_features = 10
         '''
-        Action type: choose between the following actions
+        Action type: choose between the following action types
         acceleration:
             Action = [acceleration_x, acceleration_y]
         acc_steering:
