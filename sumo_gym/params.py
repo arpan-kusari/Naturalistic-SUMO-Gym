@@ -1,6 +1,15 @@
 class SimulationConstants:
     def __init__(self):
         self.num_features = 10
+        '''
+        Action type: choose between the following action types
+        acceleration:
+            Action = [acceleration_x, acceleration_y]
+        acc_steering:
+            Action = [acceleration, steering]
+            update according to bicycle model, where the reference point is center of gravity
+        '''
+        self.action_type = "acceleration"
 
 
 class IDMConstants:

@@ -101,7 +101,7 @@ class SumoGym(gym.Env):
                     chosen_file = all_config_files[choice]
                 else:
                     sys.exit('Chosen file is not available')
-            self._cfg = config_dir + '/' + "highway-100.sumocfg"
+            self._cfg = config_dir + '/' + chosen_file # "highway-100.sumocfg"
         elif self.scenario == "custom":
             self._cfg = input("Please enter your custom .sumocfg filename:\n")
         else:
@@ -332,6 +332,61 @@ class SumoGym(gym.Env):
         
         return dx, dy
 
+    def _update_kinematic(self, action: Action, angle):
+        '''
+        Function to update kinematics of the ego vehicle based on the action
+
+        Return: distance, long_distance, lat_distance, vx, vy, speed, heading, acc_x, acc_y
+        '''
+        if self.params.action_type == "acc_steering":
+            acceleration = action[0]
+            delta_f = action[1]
+            beta = np.arctan(1 / 2 * np.tan(delta_f))
+            length = traci.vehicle.getLength(self.egoID)
+            # update x
+            vx, vy = self.ego_state['vx'], self.ego_state['vy']
+            heading = math.atan(vy / (vx + 1e-12))
+            pre_speed = math.sqrt(vx ** 2 + vy ** 2)
+            vx, vy = pre_speed * np.array([np.cos(heading + beta),
+                                   np.sin(heading + beta)])
+            long_distance = vx * self.delta_t
+            lat_distance = vy * self.delta_t
+            distance = math.sqrt(vx ** 2 + vy ** 2) * self.delta_t
+            # update a
+            acc_x = (vx - self.ego_state['vx']) / self.delta_t
+            acc_y = (vy - self.ego_state['vy']) / self.delta_t
+            # update v
+            heading += pre_speed * np.sin(beta) / (length / 2) * self.delta_t
+            speed = pre_speed + acceleration * self.delta_t
+            vx, vy = speed * np.array([np.cos(heading), np.sin(heading)])
+            heading += math.radians(angle) # Add angle between road and world coordinate
+            # print("steering action: ", acceleration, delta_f, "\tacceleration: ", acc_x, acc_y)
+        elif self.params.action_type == "acceleration":
+            ax_cmd = action[0]
+            ay_cmd = action[1]
+            vx, vy = self.ego_state['vx'], self.ego_state['vy']
+            speed = math.sqrt(vx ** 2 + vy ** 2)
+            # return heading in degrees
+            # heading = (math.atan(vy / (vx + 1e-12))
+            heading = math.atan(vy / (vx + 1e-12)) + math.radians(angle)
+
+            acc_x, acc_y = self.ego_state['ax'], self.ego_state['ay']
+            acc_x += (ax_cmd - acc_x) * self.delta_t
+            acc_y += (ay_cmd - acc_y) * self.delta_t
+
+            vx += acc_x * self.delta_t
+            vy += acc_y * self.delta_t
+
+            # stop the vehicle if speed is negative
+            vx = max(0, vx)
+            speed = math.sqrt(vx ** 2 + vy ** 2)
+            distance = speed * self.delta_t
+            long_distance = vx * self.delta_t
+            lat_distance = vy * self.delta_t
+        else:
+            raise NotImplementedError
+        # print("vy:",vy, "distance", lat_distance)
+        return distance, long_distance, lat_distance, vx, vy, speed, heading, acc_x, acc_y
 
     def update_state(self, action: Action) -> Tuple[bool, float, float, float, LineString, float, float, float, float, float, float]:
         """
@@ -341,28 +396,9 @@ class SumoGym(gym.Env):
         angle = traci.vehicle.getAngle(self.egoID)
         lane_id = traci.vehicle.getLaneID(self.egoID)
         x, y = self.ego_state['x'], self.ego_state['y']
-        ax_cmd = action[0]
-        ay_cmd = action[1]
+        
+        distance, long_distance, lat_distance, vx, vy, speed, heading, acc_x, acc_y = self._update_kinematic(action, angle)
 
-        vx, vy = self.ego_state['vx'], self.ego_state['vy']
-        speed = math.sqrt(vx ** 2 + vy ** 2)
-        # return heading in degrees
-        # heading = (math.atan(vy / (vx + 1e-12))
-        heading = math.atan(math.radians(angle) + (vy / (vx + 1e-12)))
-
-        acc_x, acc_y = self.ego_state['ax'], self.ego_state['ay']
-        acc_x += (ax_cmd - acc_x) * self.delta_t
-        acc_y += (ay_cmd - acc_y) * self.delta_t
-
-        vx += acc_x * self.delta_t
-        vy += acc_y * self.delta_t
-
-        # stop the vehicle if speed is negative
-        vx = max(0, vx)
-        speed = math.sqrt(vx ** 2 + vy ** 2)
-        distance = speed * self.delta_t
-        long_distance = vx * self.delta_t
-        lat_distance = vy * self.delta_t
         in_road = True
         # try:
         if lane_id == "":
@@ -409,16 +445,23 @@ class SumoGym(gym.Env):
         sim_check = False
         obs = []
         info = {}
+        
+        # sim check before traci update
         if in_road == False or lane_id == "":
             info["debug"] = "Ego-vehicle is out of network"
             sim_check = True
         elif self.egoID in traci.simulation.getCollidingVehiclesIDList():
             info["debug"] = "A crash happened to the Ego-vehicle"
             sim_check = True
-
+        
         else:
-            self.ego_state['lane_x'] += long_dist
-            self.ego_state['lane_y'] += lat_dist
+            # update lane_x and lane_y (based on true value instead of ego_state)
+            y = traci.vehicle.getLateralLanePosition(self.egoID)
+            lane_id = traci.vehicle.getLaneID(self.egoID)
+            lane_index = traci.vehicle.getLaneIndex(self.egoID)
+            lane_width = traci.lane.getWidth(lane_id)
+            self.ego_state['lane_x'] = traci.vehicle.getLanePosition(self.egoID) + long_dist
+            self.ego_state['lane_y'] = lane_width * (lane_index + 0.5) + y + lat_dist
             # print(self.ego_state['lane_y'])
             new_x = self.ego_state['x'] + dx
             new_y = self.ego_state['y'] + dy
@@ -437,6 +480,17 @@ class SumoGym(gym.Env):
             self.ego_state['ax'], self.ego_state['ay'] = acc_x, acc_y
             info["debug"] = [lat_dist, self.ego_state['lane_y']]
             traci.simulationStep()
+        
+        # sim check after traci update
+        lane = traci.vehicle.getLaneIndex(self.egoID)
+        lane_id = traci.vehicle.getLaneID(self.egoID)
+        if in_road == False or lane_id == "":
+            info["debug"] = "Ego-vehicle is out of network"
+            sim_check = True
+        elif self.egoID in traci.simulation.getCollidingVehiclesIDList():
+            info["debug"] = "A crash happened to the Ego-vehicle"
+            sim_check = True
+        
         reward = self.reward(action)
 
         return obs, reward, sim_check, info
